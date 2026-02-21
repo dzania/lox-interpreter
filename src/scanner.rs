@@ -1,3 +1,4 @@
+use crate::error;
 use crate::token::Literal;
 use crate::token::Token;
 use crate::token::TokenType;
@@ -44,20 +45,37 @@ impl Scanner {
             '+' => self.add_token(TokenType::Plus, None),
             ';' => self.add_token(TokenType::Semicolon, None),
             '*' => self.add_token(TokenType::Star, None),
+            '"' => self.string(),
             '!' => {
-                let tt = if self.advance_if('=') { TokenType::BangEqual } else { TokenType::Bang };
+                let tt = if self.advance_if('=') {
+                    TokenType::BangEqual
+                } else {
+                    TokenType::Bang
+                };
                 self.add_token(tt, None);
             }
             '=' => {
-                let tt = if self.advance_if('=') { TokenType::EqualEqual } else { TokenType::Equal };
+                let tt = if self.advance_if('=') {
+                    TokenType::EqualEqual
+                } else {
+                    TokenType::Equal
+                };
                 self.add_token(tt, None);
             }
             '<' => {
-                let tt = if self.advance_if('=') { TokenType::LessEqual } else { TokenType::Less };
+                let tt = if self.advance_if('=') {
+                    TokenType::LessEqual
+                } else {
+                    TokenType::Less
+                };
                 self.add_token(tt, None);
             }
             '>' => {
-                let tt = if self.advance_if('=') { TokenType::GreaterEqual } else { TokenType::Greater };
+                let tt = if self.advance_if('=') {
+                    TokenType::GreaterEqual
+                } else {
+                    TokenType::Greater
+                };
                 self.add_token(tt, None);
             }
             '/' => {
@@ -117,5 +135,51 @@ impl Scanner {
 
     fn is_at_end(&self) -> bool {
         self.current >= self.source.len()
+    }
+
+    fn peek_next(&self) -> char {
+        if self.current + 1 >= self.source.len() {
+            return '\0';
+        }
+        self.source[self.current + 1..]
+            .chars()
+            .next()
+            .expect("Peeking out of bounds")
+    }
+
+    fn string(&mut self) {
+        while self.peek() != '"' && !self.is_at_end() {
+            if self.peek() == '\n' {
+                self.line += 1;
+            }
+            if self.is_at_end() {
+                error(self.line, "Unterminated string.");
+            }
+            self.advance();
+            let literal = &self.source[self.start..self.current];
+            self.add_token(TokenType::String, Some(Literal::String(literal.to_owned())));
+        }
+    }
+
+    fn number(&mut self) {
+        while self.peek().is_digit(10) {
+            self.advance();
+        }
+
+        // Look for fractional part
+        if self.peek() == '.' && self.peek_next().is_digit(10) {
+            self.advance(); // consume "."
+            while self.peek().is_digit(10) {
+                self.advance();
+            }
+        }
+
+        let literal = &self.source[self.start..self.current];
+        self.add_token(
+            TokenType::Number,
+            Some(Literal::Number(
+                literal.parse::<f64>().expect("Failed to parse number"),
+            )),
+        );
     }
 }
