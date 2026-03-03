@@ -18,10 +18,10 @@ fn run_prompt() {
             .lock()
             .read_line(&mut line)
             .expect("Failed to read line");
-
         if line.is_empty() {
             break;
         }
+        run(line);
     }
 }
 

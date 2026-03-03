@@ -89,6 +89,8 @@ impl Scanner {
             }
             ' ' | '\r' | '\t' => {}
             '\n' => self.line += 1,
+            c if c.is_ascii_digit() => self.number(),
+            c if c.is_ascii_alphabetic() || c == '_' => self.identifier(),
             _ => crate::error(self.line, "Unexpected character."),
         }
     }
@@ -103,7 +105,7 @@ impl Scanner {
         let c = self.source[self.current..]
             .chars()
             .next()
-            .expect("Advancing out of bounds");
+            .expect("Unexpected EOF");
         self.current += c.len_utf8();
         c
     }
@@ -130,7 +132,7 @@ impl Scanner {
         self.source[self.current..]
             .chars()
             .next()
-            .expect("Peeking out of bounds")
+            .expect("Unexpected EOF")
     }
 
     fn is_at_end(&self) -> bool {
@@ -144,7 +146,7 @@ impl Scanner {
         self.source[self.current + 1..]
             .chars()
             .next()
-            .expect("Peeking out of bounds")
+            .expect("Unexpected EOF")
     }
 
     fn string(&mut self) {
@@ -162,12 +164,12 @@ impl Scanner {
     }
 
     fn number(&mut self) {
-        while self.peek().is_digit(10) {
+        while self.peek().is_ascii_digit() {
             self.advance();
         }
 
         // Look for fractional part
-        if self.peek() == '.' && self.peek_next().is_digit(10) {
+        if self.peek() == '.' && self.peek_next().is_ascii_digit() {
             self.advance(); // consume "."
             while self.peek().is_digit(10) {
                 self.advance();
@@ -181,5 +183,14 @@ impl Scanner {
                 literal.parse::<f64>().expect("Failed to parse number"),
             )),
         );
+    }
+
+    fn identifier(&mut self) {
+        while self.peek().is_alphanumeric() {
+            self.advance();
+        }
+        let literal = &self.source[self.start..self.current];
+        let token_type = TokenType::keyword_from_str(literal).unwrap_or(TokenType::Identifier);
+        self.add_token(token_type, Some(Literal::String(literal.into())));
     }
 }
