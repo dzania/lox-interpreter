@@ -83,6 +83,8 @@ impl Scanner {
                     while !self.is_at_end() && self.peek() != '\n' {
                         self.advance();
                     }
+                } else if self.advance_if('*') {
+                    self.block_comment();
                 } else {
                     self.add_token(TokenType::Slash, None);
                 }
@@ -183,6 +185,29 @@ impl Scanner {
                 literal.parse::<f64>().expect("Failed to parse number"),
             )),
         );
+    }
+
+    fn block_comment(&mut self) {
+        let mut depth = 1;
+        while !self.is_at_end() && depth > 0 {
+            if self.peek() == '/' && self.peek_next() == '*' {
+                self.advance();
+                self.advance();
+                depth += 1;
+            } else if self.peek() == '*' && self.peek_next() == '/' {
+                self.advance();
+                self.advance();
+                depth -= 1;
+            } else {
+                if self.peek() == '\n' {
+                    self.line += 1;
+                }
+                self.advance();
+            }
+        }
+        if depth > 0 {
+            error(self.line, "Unterminated block comment.");
+        }
     }
 
     fn identifier(&mut self) {
