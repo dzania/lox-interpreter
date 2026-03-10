@@ -187,6 +187,28 @@ impl Parser {
         })
     }
 
+    /// Discards tokens until a statement boundary is found, to recover from a parse error.
+    fn synchronize(&mut self) {
+        self.advance();
+        while !self.is_at_end() {
+            if self.previous().token_type == TokenType::Semicolon {
+                break;
+            }
+            match self.peek().token_type {
+                TokenType::Class
+                | TokenType::Fun
+                | TokenType::Var
+                | TokenType::For
+                | TokenType::If
+                | TokenType::While
+                | TokenType::Print
+                | TokenType::Return => break,
+                _ => (),
+            }
+            self.advance();
+        }
+    }
+
     /// Returns `true` if all tokens have been consumed.
     fn is_at_end(&self) -> bool {
         self.peek().token_type == TokenType::Eof
@@ -209,4 +231,5 @@ impl Parser {
         }
         self.previous()
     }
+
 }
