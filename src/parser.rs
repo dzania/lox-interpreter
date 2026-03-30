@@ -39,6 +39,11 @@ impl Parser {
         Self { tokens, current: 0 }
     }
 
+    /// Entry point — parses a single expression.
+    pub fn parse(&mut self) -> Result<Expr, ParseError> {
+        self.expression()
+    }
+
     /// Parses an expression (lowest precedence).
     fn expression(&mut self) -> Result<Expr, ParseError> {
         self.equality()
@@ -231,5 +236,4 @@ impl Parser {
         }
         self.previous()
     }
-
 }
