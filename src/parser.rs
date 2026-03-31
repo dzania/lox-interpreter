@@ -1,4 +1,5 @@
 use crate::expr::Expr;
+use crate::stmt::Stmt;
 use crate::token::{Token, TokenType};
 use std::fmt;
 
@@ -31,17 +32,84 @@ impl fmt::Display for ParseError {
 pub struct Parser {
     tokens: Vec<Token>,
     current: usize,
+    had_error: bool,
 }
 
 impl Parser {
     /// Creates a new parser with the given token list.
     pub fn new(tokens: Vec<Token>) -> Self {
-        Self { tokens, current: 0 }
+        Self {
+            tokens,
+            current: 0,
+            had_error: false,
+        }
+    }
+
+    pub fn had_error(&self) -> bool {
+        self.had_error
     }
 
     /// Entry point — parses a single expression.
-    pub fn parse(&mut self) -> Result<Expr, ParseError> {
-        self.expression()
+    pub fn parse(&mut self) -> Vec<Stmt> {
+        let mut statements = Vec::new();
+        while !self.is_at_end() {
+            if let Some(stmt) = self.declaration() {
+                statements.push(stmt);
+            }
+        }
+        statements
+    }
+
+    fn declaration(&mut self) -> Option<Stmt> {
+        let result = if self.check_match(&[TokenType::Var]) {
+            self.var_declaration()
+        } else {
+            self.statement()
+        };
+        match result {
+            Ok(stmt) => Some(stmt),
+            Err(e) => {
+                eprintln!("{e}");
+                self.had_error = true;
+                self.synchronize();
+                None
+            }
+        }
+    }
+
+    fn var_declaration(&mut self) -> Result<Stmt, ParseError> {
+        let name = self
+            .consume(&TokenType::Identifier, "Expected variable name")?
+            .to_owned();
+        let initializer = if self.check_match(&[TokenType::Equal]) {
+            Some(self.expression()?)
+        } else {
+            None
+        };
+        self.consume(
+            &TokenType::Semicolon,
+            "Expected ';' after variable declaration.",
+        )?;
+        Ok(Stmt::Var { name, initializer })
+    }
+
+    fn statement(&mut self) -> Result<Stmt, ParseError> {
+        if self.check_match(&[TokenType::Print]) {
+            return self.print_statement();
+        }
+        self.expr_statement()
+    }
+
+    fn print_statement(&mut self) -> Result<Stmt, ParseError> {
+        let expr = self.expression()?;
+        self.consume(&TokenType::Semicolon, "Expected ';' after value")?;
+        Ok(Stmt::Print { expr })
+    }
+
+    fn expr_statement(&mut self) -> Result<Stmt, ParseError> {
+        let expr = self.expression()?;
+        self.consume(&TokenType::Semicolon, "Expected ';' after expression")?;
+        Ok(Stmt::Expression { expr })
     }
 
     /// Parses an expression (lowest precedence).
@@ -149,6 +217,10 @@ impl Parser {
                     .clone()
                     .expect("Expected literal value"),
             });
+        }
+        if self.check_match(&[TokenType::Identifier]) {
+            let name = self.previous().to_owned();
+            return Ok(Expr::Variable { name });
         }
         if self.check_match(&[TokenType::LeftParen]) {
             let expression = Box::new(self.expression()?);

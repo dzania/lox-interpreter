@@ -4,6 +4,7 @@ pub mod expr;
 pub mod interpreter;
 pub mod parser;
 pub mod scanner;
+pub mod stmt;
 pub mod token;
 
 use interpreter::{Interpreter, RuntimeError};
@@ -13,8 +14,8 @@ use scanner::ScanError;
 
 /// Distinguishes the two failure modes so run_file can exit with the right code.
 enum RunError {
-    Compile,  // exit 65
-    Runtime,  // exit 70
+    Compile, // exit 65
+    Runtime, // exit 70
 }
 
 // ── Lox application struct ───────────────────────────────────────────────────
@@ -25,15 +26,17 @@ struct Lox {
 
 impl Lox {
     fn new() -> Self {
-        Self { interpreter: Interpreter }
+        Self {
+            interpreter: Interpreter,
+        }
     }
 
     fn run_file(&mut self, path: &str) {
         let source = fs::read_to_string(Path::new(path)).expect("Error reading file");
         match self.run(source) {
-            Ok(())                  => {}
-            Err(RunError::Compile)  => std::process::exit(65),
-            Err(RunError::Runtime)  => std::process::exit(70),
+            Ok(()) => {}
+            Err(RunError::Compile) => std::process::exit(65),
+            Err(RunError::Runtime) => std::process::exit(70),
         }
     }
 
@@ -43,7 +46,12 @@ impl Lox {
             print!(">> ");
             io::stdout().flush().expect("Failed to flush output");
             let mut line = String::new();
-            if stdin.lock().read_line(&mut line).expect("Failed to read line") == 0 {
+            if stdin
+                .lock()
+                .read_line(&mut line)
+                .expect("Failed to read line")
+                == 0
+            {
                 break; // EOF
             }
             // Errors are already printed; we just keep going.
@@ -61,15 +69,18 @@ impl Lox {
             return Err(RunError::Compile);
         }
 
-        let expr = parser::Parser::new(tokens).parse().map_err(|e| {
-            eprintln!("{e}");
-            RunError::Compile
-        })?;
+        let mut parser = parser::Parser::new(tokens);
+        let statements = parser.parse();
+        if parser.had_error() {
+            return Err(RunError::Compile);
+        }
 
-        self.interpreter.interpret(&expr).map_err(|RuntimeError { token, message }| {
-            eprintln!("{message}\n[line {}]", token.line);
-            RunError::Runtime
-        })?;
+        self.interpreter
+            .interpret(statements)
+            .map_err(|RuntimeError { token, message }| {
+                eprintln!("{message}\n[line {}]", token.line);
+                RunError::Runtime
+            })?;
 
         Ok(())
     }

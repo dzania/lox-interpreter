@@ -37,7 +37,10 @@ impl Scanner {
     }
 
     fn scan_error(&mut self, message: &str) {
-        self.errors.push(ScanError { line: self.line, message: message.to_string() });
+        self.errors.push(ScanError {
+            line: self.line,
+            message: message.to_string(),
+        });
     }
 
     fn scan_token(&mut self) {
@@ -55,24 +58,42 @@ impl Scanner {
             '*' => self.add_token(TokenType::Star, None),
             '"' => self.string(),
             '!' => {
-                let tt = if self.advance_if('=') { TokenType::BangEqual } else { TokenType::Bang };
+                let tt = if self.advance_if('=') {
+                    TokenType::BangEqual
+                } else {
+                    TokenType::Bang
+                };
                 self.add_token(tt, None);
             }
             '=' => {
-                let tt = if self.advance_if('=') { TokenType::EqualEqual } else { TokenType::Equal };
+                let tt = if self.advance_if('=') {
+                    TokenType::EqualEqual
+                } else {
+                    TokenType::Equal
+                };
                 self.add_token(tt, None);
             }
             '<' => {
-                let tt = if self.advance_if('=') { TokenType::LessEqual } else { TokenType::Less };
+                let tt = if self.advance_if('=') {
+                    TokenType::LessEqual
+                } else {
+                    TokenType::Less
+                };
                 self.add_token(tt, None);
             }
             '>' => {
-                let tt = if self.advance_if('=') { TokenType::GreaterEqual } else { TokenType::Greater };
+                let tt = if self.advance_if('=') {
+                    TokenType::GreaterEqual
+                } else {
+                    TokenType::Greater
+                };
                 self.add_token(tt, None);
             }
             '/' => {
                 if self.advance_if('/') {
-                    while !self.is_at_end() && self.peek() != '\n' { self.advance(); }
+                    while !self.is_at_end() && self.peek() != '\n' {
+                        self.advance();
+                    }
                 } else if self.advance_if('*') {
                     self.block_comment();
                 } else {
@@ -89,31 +110,52 @@ impl Scanner {
 
     fn add_token(&mut self, token_type: TokenType, literal: Option<Literal>) {
         let text = &self.source[self.start..self.current];
-        self.tokens.push(Token::new(token_type, text.to_string(), literal, self.line));
+        self.tokens
+            .push(Token::new(token_type, text.to_string(), literal, self.line));
     }
 
     fn advance(&mut self) -> char {
-        let c = self.source[self.current..].chars().next().expect("Unexpected EOF");
+        let c = self.source[self.current..]
+            .chars()
+            .next()
+            .expect("Unexpected EOF");
         self.current += c.len_utf8();
         c
     }
 
     fn advance_if(&mut self, expected: char) -> bool {
-        if self.is_at_end() { return false; }
-        let c = self.source[self.current..].chars().next().expect("Advancing out of bounds");
-        if c != expected { return false; }
+        if self.is_at_end() {
+            return false;
+        }
+        let c = self.source[self.current..]
+            .chars()
+            .next()
+            .expect("Advancing out of bounds");
+        if c != expected {
+            return false;
+        }
         self.current += c.len_utf8();
         true
     }
 
     fn peek(&self) -> char {
-        if self.is_at_end() { return '\0'; }
-        self.source[self.current..].chars().next().expect("Unexpected EOF")
+        if self.is_at_end() {
+            return '\0';
+        }
+        self.source[self.current..]
+            .chars()
+            .next()
+            .expect("Unexpected EOF")
     }
 
     fn peek_next(&self) -> char {
-        if self.current + 1 >= self.source.len() { return '\0'; }
-        self.source[self.current + 1..].chars().next().expect("Unexpected EOF")
+        if self.current + 1 >= self.source.len() {
+            return '\0';
+        }
+        self.source[self.current + 1..]
+            .chars()
+            .next()
+            .expect("Unexpected EOF")
     }
 
     fn is_at_end(&self) -> bool {
@@ -122,7 +164,9 @@ impl Scanner {
 
     fn string(&mut self) {
         while self.peek() != '"' && !self.is_at_end() {
-            if self.peek() == '\n' { self.line += 1; }
+            if self.peek() == '\n' {
+                self.line += 1;
+            }
             self.advance();
         }
         if self.is_at_end() {
@@ -135,15 +179,21 @@ impl Scanner {
     }
 
     fn number(&mut self) {
-        while self.peek().is_ascii_digit() { self.advance(); }
+        while self.peek().is_ascii_digit() {
+            self.advance();
+        }
         if self.peek() == '.' && self.peek_next().is_ascii_digit() {
             self.advance();
-            while self.peek().is_ascii_digit() { self.advance(); }
+            while self.peek().is_ascii_digit() {
+                self.advance();
+            }
         }
         let literal = &self.source[self.start..self.current];
         self.add_token(
             TokenType::Number,
-            Some(Literal::Number(literal.parse::<f64>().expect("Failed to parse number"))),
+            Some(Literal::Number(
+                literal.parse::<f64>().expect("Failed to parse number"),
+            )),
         );
     }
 
@@ -151,21 +201,29 @@ impl Scanner {
         let mut depth = 1;
         while !self.is_at_end() && depth > 0 {
             if self.peek() == '/' && self.peek_next() == '*' {
-                self.advance(); self.advance();
+                self.advance();
+                self.advance();
                 depth += 1;
             } else if self.peek() == '*' && self.peek_next() == '/' {
-                self.advance(); self.advance();
+                self.advance();
+                self.advance();
                 depth -= 1;
             } else {
-                if self.peek() == '\n' { self.line += 1; }
+                if self.peek() == '\n' {
+                    self.line += 1;
+                }
                 self.advance();
             }
         }
-        if depth > 0 { self.scan_error("Unterminated block comment."); }
+        if depth > 0 {
+            self.scan_error("Unterminated block comment.");
+        }
     }
 
     fn identifier(&mut self) {
-        while self.peek().is_alphanumeric() || self.peek() == '_' { self.advance(); }
+        while self.peek().is_alphanumeric() || self.peek() == '_' {
+            self.advance();
+        }
         let text = &self.source[self.start..self.current];
         let token_type = TokenType::keyword_from_str(text).unwrap_or(TokenType::Identifier);
         self.add_token(token_type, None);
